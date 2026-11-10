@@ -1,0 +1,88 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Validate OpenAPI documents
+        run: |
+          mapfile -t specs < <(find specs -type f -name 'openapi*.json' | sort)
+          if [ "${#specs[@]}" -eq 0 ]; then
+            echo "no OpenAPI documents found under specs/" >&2
+            exit 1
+          fi
+          for spec in "${specs[@]}"; do
+            echo "validating ${spec}"
+            openapi-spec-validator "${spec}"
+          done
+
+      - name: Lint for MCP constraints
+        run: python tools/lint_mcp.py
+
+      - name: Check read-only variants are current
+        run: python tools/make_readonly.py --check
+
+      - name: Validate MCPHub configs
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from tools.lib.secrets import find_secrets
+
+          files = sorted(Path("specs").glob("*/mcphub.json"))
+          if not files:
+              raise SystemExit("no specs/*/mcphub.json files found")
+
+          for path in files:
+              document = json.loads(path.read_text(encoding="utf-8"))
+              servers = document.get("mcpServers")
+              if not isinstance(servers, dict) or not servers:
+                  raise SystemExit(f"{path}: missing mcpServers")
+
+              for name, server in servers.items():
+                  if server.get("type") != "openapi":
+                      raise SystemExit(f"{path}: {name} is not type openapi")
+
+                  openapi = server.get("openapi") or {}
+                  url = str(openapi.get("url", ""))
+                  if not url.startswith("https://raw.githubusercontent.com/"):
+                      raise SystemExit(
+                          f"{path}: {name} must point at a raw GitHub URL"
+                      )
+
+                  security = openapi.get("security") or {}
+                  if security.get("type") not in {"apiKey", "bearer", "basic"}:
+                      raise SystemExit(f"{path}: {name} has no supported security block")
+
+                  if "YOUR_" not in json.dumps(security):
+                      raise SystemExit(
+                          f"{path}: {name} token is not a YOUR_... placeholder"
+                      )
+
+              problems = find_secrets(document)
+              if problems:
+                  raise SystemExit(f"{path}: secret-shaped value: {problems}")
+
+              print(f"{path}: OK")
+          PY

@@ -1,0 +1,2345 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DMARC Report API (unofficial OpenAPI 3)",
+    "version": "2.0",
+    "description": "Unofficial OpenAPI 3.0.3 conversion of the DMARC Report API v2 (https://docs.dmarcreport.com/), cleaned up for MCPHub's OpenAPI server type and other OpenAPI-to-MCP bridges.\n\nConverted from the Apipie Swagger 2.0 output at https://docs.dmarcreport.com/api/2.0.json?type=swagger by Managing WP (https://managingwp.io). Not affiliated with or endorsed by DMARC Report.\n\n### Authentication\nCreate an API token in app.dmarcreport.com (profile icon > API Tokens > New Api Token), then send it as:\n\n`Authorization: Token token=<your-token>`\n\n### Changes from the source spec\n- Swagger 2.0 to OpenAPI 3.0.3, with `servers` set to https://api.dmarcreport.com (the source had host localhost:3000).\n- Added a `TokenAuth` security scheme (the source had none).\n- Short operationIds that are valid MCP tool names (no dots, under 40 characters).\n- `q[...]` query filters collapsed into a single `q` deepObject parameter; the bridge must support deepObject to send them.\n- Form fields such as `domain[address]` turned into nested JSON request bodies.\n- Boolean, integer and enum types fixed (page/per/limit as integers, true/false enums as booleans).\n- HTML descriptions converted to Markdown; the sample token in the auth docs removed.\n- Generic JSON 200 responses added (the source defines no success responses)."
+  },
+  "paths": {
+    "/v2/accounts": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "List accounts",
+        "description": "",
+        "operationId": "list_accounts",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{id}": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Get account details",
+        "description": "The :id parameter can be either the numeric ID or the slug of the account",
+        "operationId": "get_account",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Account ID (numeric, e.g., \"1473\") or slug (e.g., \"my-team\")",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{id}/compliance_summary": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Get DMARC compliance summary for all domains in account",
+        "description": "Returns an overall DMARC compliance scorecard for all domains in an account. Uses a single optimized database query to fetch stats for all domains at once.\n\nResponse includes:\n- `total_domains`: Number of domains in the account\n- `active_domains`: Domains with email volume in the period\n- `total_email_volume`: Total emails across all domains\n- `overall_compliance_rate`: Weighted average compliance rate\n- `policy_distribution`: Count of domains by DMARC policy (none/quarantine/reject)\n- `grade_distribution`: Count of domains by security grade (A-F)\n- `domains_needing_attention`: Domains with grade D or F\n- `domains_ready_to_advance`: Domains ready for stronger policy\n- `domains`: Per-domain breakdown with policy, compliance, volume, grade, and readiness\n\nEach domain includes readiness indicators:\n- `ready_to_advance`: Boolean\n- true if domain can move to stronger policy\n- `advance_to`: Target policy (quarantine or reject) if ready\n- `readiness_note`: Human-readable status message\n- `at_max_protection`: True when at p=reject with 98%+ compliance\n\nGrades reflect current protection level:\n- A: p=reject with 98%+ compliance (full protection)\n- B: p=reject 90%+ OR p=quarantine 90%+ compliance\n- C: p=reject 80%+ OR p=quarantine 80%+ OR p=none 90%+\n- D: p=reject 70%+ OR p=quarantine 70%+ OR p=none 70%+\n- F: Below 70% or no DMARC policy",
+        "operationId": "get_account_compliance_summary",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Account ID (numeric or slug)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "description": "Number of days to analyze (default: 30, max: 90)",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/agg_reports.json": {
+      "get": {
+        "tags": [
+          "agg_reports"
+        ],
+        "summary": "List, Search and Paginate Aggregte Reports",
+        "description": "",
+        "operationId": "list_aggregate_reports",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "org_name_eq": {
+                  "type": "string",
+                  "description": "Search by Reporter"
+                },
+                "date_begin_gteq": {
+                  "type": "string",
+                  "description": "Search by date begin, Format: YYYY-MM-DD"
+                },
+                "date_begin_lteq": {
+                  "type": "string",
+                  "description": "Search by date end, Format: YYYY-MM-DD"
+                }
+              }
+            },
+            "description": "Nested `q` filter object. The bridge must support `deepObject`; on the wire this stays `q[field]=value`."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page Number",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "per",
+            "in": "query",
+            "description": "Entries per page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/agg_reports/records.json": {
+      "get": {
+        "tags": [
+          "agg_reports"
+        ],
+        "summary": "Get all the details of a Aggregte Reports records",
+        "description": "Each record’s `ip_address` now includes an `email_service` block when the source IP matches a known mail provider in our research database. See the `agg_reports/:id` endpoint description for the block shape and semantics — both endpoints return the same enrichment.",
+        "operationId": "search_aggregate_report_records",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "agg_report_date_begin_gteq": {
+                  "type": "string",
+                  "description": "Search by start date of agg report format: \"mm-dd-yyyy\""
+                },
+                "agg_report_date_end_gteq": {
+                  "type": "string",
+                  "description": "Search by end date of agg report format: \"mm-dd-yyyy\""
+                },
+                "agg_report_org_name_eq": {
+                  "type": "string",
+                  "description": "Search by reporter"
+                },
+                "ip_address_source_ip_eq": {
+                  "type": "string",
+                  "description": "Search by source ip"
+                },
+                "ip_address_ptr_eq": {
+                  "type": "string",
+                  "description": "Search by PTR"
+                },
+                "ip_address_country_eq": {
+                  "type": "string",
+                  "description": "Search by country alpha2 code e.g. \"us\" for \"United States of America\""
+                },
+                "count_eq": {
+                  "type": "integer",
+                  "description": "Search by for Volume"
+                },
+                "disposition_eq": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "quarantine",
+                    "reject"
+                  ],
+                  "description": "Search by Applied Policy"
+                },
+                "spf_alignment_eq": {
+                  "type": "boolean",
+                  "description": "Search by SPF Alignment: true for Aligned, false for Unaligned"
+                },
+                "spf_status_eq": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "fail"
+                  ],
+                  "description": "Search by SPF"
+                },
+                "spf_result_eq": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "neutral",
+                    "pass",
+                    "fail",
+                    "softfail"
+                  ],
+                  "description": "Search by SPF Auth Result"
+                },
+                "spf_domain_eq": {
+                  "type": "string",
+                  "description": "Search by SPF Auth Scope"
+                },
+                "reason_eq": {
+                  "type": "string",
+                  "enum": [
+                    "forwarded",
+                    "sampled_out",
+                    "trusted_forwarder",
+                    "mailing_list",
+                    "local_policy",
+                    "policy_test_mode",
+                    "other"
+                  ],
+                  "description": "Search by Policy Override Reason"
+                },
+                "dkim_alignment_eq": {
+                  "type": "boolean",
+                  "description": "Search by DKIM Alignment: true for Aligned, false for Unaligned"
+                },
+                "dkim_status_eq": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "fail"
+                  ],
+                  "description": "Search by DKIM"
+                },
+                "dkims_result_eq": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "neutral",
+                    "pass",
+                    "fail",
+                    "softfail"
+                  ],
+                  "description": "Search by DKIM Auth result"
+                },
+                "dkims_domain_eq": {
+                  "type": "string",
+                  "description": "Search by DKIM Domain"
+                },
+                "dkims_selector_eq": {
+                  "type": "string",
+                  "description": "Search by DKIM selector"
+                },
+                "dmarc_compliance_eq": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "description": "Search by DMARC Compliance: 0 for complaint, 1 for non compliant and 2 for forwarded"
+                }
+              }
+            },
+            "description": "Nested `q` filter object. The bridge must support `deepObject`; on the wire this stays `q[field]=value`."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page Number",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "per",
+            "in": "query",
+            "description": "Entries per page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/agg_reports/{id}.json": {
+      "get": {
+        "tags": [
+          "agg_reports"
+        ],
+        "summary": "Get all the details of a Aggregte Report",
+        "description": "Each record’s `ip_address` now includes an `email_service` block when the source IP matches a known mail provider in our research database (Google, Office 365, Mailgun, SendGrid, etc.). The block identifies the service, classifies it as sender vs. forwarder, and surfaces capability flags (supports_dkim/spf/dmarc) plus setup URLs. Returns `email_service: null` when no match is found. Use `is_in_spf_record` on the record level for the authoritative SPF-alignment check — `email_service` describes what the IP IS, not whether it’s authorised for this domain.",
+        "operationId": "get_aggregate_report",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/agg_reports/agg_report_stats": {
+      "get": {
+        "tags": [
+          "agg_reports"
+        ],
+        "summary": "Get Aggregate Report Stats of domain",
+        "description": "Response now includes alignment-based counts alongside compliance counts: `spf_count` and `dkim_count` (record volume where SPF/DKIM authentication passed) and `reject_count` (record volume where the applied disposition was reject). These are sourced from `Record.stats_count`. Existing fields — compliant, non_compliant, forwarded, total, none, quarantine, reject — remain unchanged.",
+        "operationId": "get_aggregate_report_stats",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "end_date": {
+                  "type": "string",
+                  "description": "Search by date end, Format: YYYY-MM-DD"
+                },
+                "start_date": {
+                  "type": "string",
+                  "description": "Search by date begin, Format: YYYY-MM-DD"
+                }
+              },
+              "required": [
+                "end_date",
+                "start_date"
+              ]
+            },
+            "description": "Nested `q` filter object. The bridge must support `deepObject`; on the wire this stays `q[field]=value`."
+          },
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "Search by filter, Format: \"last_7_days, last_10_days, last_15_days, last_30_days",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/agg_reports/top_sources": {
+      "get": {
+        "tags": [
+          "agg_reports"
+        ],
+        "summary": "Get top email sources for a domain",
+        "description": "Returns the top email sources (senders) for a domain, aggregated by PTR domain.\n\nEach source includes:\n- `source`: The PTR domain of the sending servers (e.g., “google.com”, “sendgrid.net”)\n- `total`: Total email volume from this source\n- `compliant`: DMARC-compliant emails (passed authentication)\n- `non_compliant`: Non-compliant emails (failed authentication)\n- `compliance_rate`: Percentage of compliant emails (0-100)\n\nSources are sorted by total volume (highest first).\n\nUse this to identify:\n- Your legitimate email services and their authentication status\n- High-volume senders that may need SPF/DKIM configuration\n- Unknown sources that could be spoofing attempts",
+        "operationId": "get_top_email_sources",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "start_date": {
+                  "type": "string",
+                  "description": "Start date, Format: YYYY-MM-DD"
+                },
+                "end_date": {
+                  "type": "string",
+                  "description": "End date, Format: YYYY-MM-DD"
+                }
+              }
+            },
+            "description": "Nested `q` filter object. The bridge must support `deepObject`; on the wire this stays `q[field]=value`."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "Preset filter: last_7_days, last_10_days, last_15_days, last_30_days (default: last_30_days)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of sources to return (default: 10, max: 50)",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/agg_reports/alignment_failures": {
+      "get": {
+        "tags": [
+          "agg_reports"
+        ],
+        "summary": "Get SPF/DKIM alignment failures ranked by volume",
+        "description": "Returns email sources that are failing DMARC authentication, ranked by failure volume.\n\nEach failure entry includes:\n- `source`: The PTR domain of the failing sender\n- `failure_count`: Number of non-compliant emails\n- `percentage_of_total_failures`: This source’s share of all failures\n\nUse this to identify:\n- Legitimate services that need SPF/DKIM configuration\n- Potential spoofing sources to investigate\n- Priority order for remediation (highest volume first)\n\nNote: Sources with email_service identification can be cross-referenced with get_email_sources to find setup instructions for SPF/DKIM configuration.",
+        "operationId": "get_alignment_failures",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "start_date": {
+                  "type": "string",
+                  "description": "Start date, Format: YYYY-MM-DD"
+                },
+                "end_date": {
+                  "type": "string",
+                  "description": "End date, Format: YYYY-MM-DD"
+                }
+              }
+            },
+            "description": "Nested `q` filter object. The bridge must support `deepObject`; on the wire this stays `q[field]=value`."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "Preset filter: last_7_days, last_10_days, last_15_days, last_30_days (default: last_30_days)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of failures to return (default: 20, max: 100)",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/agg_reports/trends": {
+      "get": {
+        "tags": [
+          "agg_reports"
+        ],
+        "summary": "Get DMARC compliance trends over time",
+        "description": "Returns daily compliance statistics for analyzing trends over time.\n\nResponse includes:\n- `data_points`: Array of daily statistics sorted by date (oldest first)\n- `summary`: Aggregated statistics for the entire period\n\nEach data point includes:\n- `date`: The date (YYYY-MM-DD)\n- `compliant`: DMARC-compliant email count\n- `non_compliant`: Non-compliant email count\n- `forwarded`: Forwarded email count\n- `total`: Total email volume\n- `compliance_rate`: Daily compliance percentage\n\nUse this to:\n- Visualize compliance improvements over time\n- Identify sudden drops in authentication rates\n- Track the impact of SPF/DKIM configuration changes\n- Monitor for potential email spoofing incidents",
+        "operationId": "get_compliance_trends",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "start_date": {
+                  "type": "string",
+                  "description": "Start date, Format: YYYY-MM-DD"
+                },
+                "end_date": {
+                  "type": "string",
+                  "description": "End date, Format: YYYY-MM-DD"
+                }
+              }
+            },
+            "description": "Nested `q` filter object. The bridge must support `deepObject`; on the wire this stays `q[field]=value`."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "Preset filter: last_7_days, last_10_days, last_15_days, last_30_days, last_60_days, last_90_days (default: last_30_days)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/agg_reports/pdf": {
+      "get": {
+        "tags": [
+          "agg_reports"
+        ],
+        "summary": "Download PDF audit report for a domain",
+        "description": "Returns a branded PDF audit report containing DMARC compliance data, authentication statistics, and email source analysis for the specified date range.\n\nThe PDF includes:\n- Executive summary with security grade (A-F)\n- Compliance overview with SPF/DKIM/DMARC stats\n- Daily message volume chart\n- Email source categorization (authenticated, needs config, unauthenticated)\n- MTA-STS report (if enabled)\n- Recommendations and next steps\n\nWhite-labeled accounts receive branded reports with their custom logo.",
+        "operationId": "download_domain_pdf_report",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "description": "Start date (YYYY-MM-DD). Defaults to 30 days ago.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "description": "End date (YYYY-MM-DD). Defaults to today.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "Preset filter: last_7_days, last_10_days, last_15_days, last_30_days, last_60_days, last_90_days",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "PDF audit report",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/alerts": {
+      "get": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "List all alerts for an account",
+        "description": "Returns all alerts configured for domains in the specified account.\n\n**Alert Types:**\n- `metric`: Triggered when a metric threshold is exceeded (e.g., emails_reported > 1000)\n- `event`: Triggered by specific events (e.g., new_subdomain_detected, dmarc_changed)\n- `summary`: Periodic summary reports\n\n**Event Types:**\n- `new_subdomain_detected`: New subdomain sending email detected\n- `new_forensic_report`: New forensic (failure) report received\n- `spf_dkim_alignments_and_delivery_rate_drops`: Authentication alignment drops\n- `dmarc_changed`: DMARC record changed\n- `spf_changed`: SPF record changed\n- `mx_changed`: MX record changed\n- `low_message_credits`: Message credits running low\n\n**Metric Types:**\n- `emails_reported`: Total emails in reports\n- `compliant`: DMARC-compliant emails\n- `non_compliant`: Non-compliant emails\n- `threats`: Suspicious/threat emails",
+        "operationId": "list_alerts",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "description": "Filter by active status",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "alert_type",
+            "in": "query",
+            "description": "Filter by alert type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "metric",
+                "event",
+                "summary"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/alerts/{id}": {
+      "get": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "Get alert details",
+        "description": "Returns detailed information about a specific alert including all associated domains.",
+        "operationId": "get_alert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/bimi_status": {
+      "get": {
+        "tags": [
+          "bimi_status"
+        ],
+        "summary": "Get BIMI status for a domain",
+        "description": "Returns the complete BIMI (Brand Indicators for Message Identification) status for a domain.\n\n**Response includes:**\n- `dns_status`: DMARC and BIMI DNS record status\n- `dmarc_valid`: Whether DMARC record meets BIMI requirements (p=quarantine or p=reject with pct=100)\n- `dmarc_policy`: Current DMARC policy value\n- `dmarc_pct`: Current DMARC percentage value\n- `bimi_record_found`: Whether a BIMI TXT record exists\n- `bimi_record_value`: The current BIMI TXT record value\n- `logo_status`: BIMI logo upload status (if applicable)\n- `uploaded`: Whether a logo has been uploaded\n- `public_url`: CDN URL for the logo\n- `valid_for_bimi`: Whether the logo passes BIMI validation\n- `validation_errors`: Any validation issues\n- `repairs_applied`: Automatic fixes applied during upload\n- `certificate_status`: VMC/CMC certificate status (if applicable)\n- `has_certificate`: Whether a certificate is attached\n- `certificate_type`: ‘vmc’ or ‘cmc’\n- `certificate_valid`: Whether certificate is valid\n- `expires_at`: Certificate expiry date\n- `days_until_expiry`: Days remaining until expiry\n- `expiring_soon`: True if expires within 30 days\n- `recommended_record`: The BIMI DNS record to publish\n- `readiness`: Overall BIMI readiness assessment\n- `ready`: Whether domain is ready for BIMI\n- `blockers`: List of issues preventing BIMI\n- `recommendations`: Suggested improvements",
+        "operationId": "get_bimi_status",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domain_accounts": {
+      "get": {
+        "tags": [
+          "domain_accounts"
+        ],
+        "summary": "List domain accounts",
+        "description": "",
+        "operationId": "list_domain_accounts",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domain_accounts/{id}": {
+      "get": {
+        "tags": [
+          "domain_accounts"
+        ],
+        "summary": "Details of domain account",
+        "description": "",
+        "operationId": "get_domain_account",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/all_domains.json": {
+      "get": {
+        "tags": [
+          "domains"
+        ],
+        "summary": "List of all Domains",
+        "description": "Returns a list of all domains across all accounts for the authenticated user.\n\n**Response includes:**\n- `parked_domain` (boolean): Indicates if the domain is parked (true) or live (false). Parked domains have limited message volume.\n- `tags` (array): Array of tag objects associated with the domain, each containing id, name, and color.",
+        "operationId": "list_all_domains",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains.json": {
+      "get": {
+        "tags": [
+          "domains"
+        ],
+        "summary": "List of all domains in given account",
+        "description": "Returns a list of all domains in the specified account.\n\n**Response includes:**\n- `parked_domain` (boolean): Indicates if the domain is parked (true) or live (false). Parked domains have limited message volume.\n- `tags` (array): Array of tag objects associated with the domain, each containing id, name, and color.",
+        "operationId": "list_domains",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{id}.json": {
+      "get": {
+        "tags": [
+          "domains"
+        ],
+        "summary": "Get all the details of a Domain",
+        "description": "Returns detailed information about a specific domain.\n\nThe :id parameter can be either the numeric ID or the slug of the domain.\n\n**Response includes:**\n- `parked_domain` (boolean): Indicates if the domain is parked (true) or live (false). Parked domains have limited message volume.\n- `tags` (array): Array of tag objects associated with the domain, each containing id, name, and color.",
+        "operationId": "get_domain",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Domain ID (numeric, e.g., \"123\") or slug (e.g., \"example-com\")",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{id}/hosted_services.json": {
+      "get": {
+        "tags": [
+          "domains"
+        ],
+        "summary": "Get hosted services status and CNAME records",
+        "description": "Returns the current status of hosted services for a domain, including:\n- Whether hosted DMARC and MTA-STS are enabled\n- CNAME records that need to be added to DNS\n- Current CNAME verification status\n\nUse this endpoint to get the CNAME values after enabling hosted services, and to check the current propagation status.",
+        "operationId": "get_hosted_services",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/email_sources": {
+      "get": {
+        "tags": [
+          "email_sources"
+        ],
+        "summary": "List email sources for a domain",
+        "description": "Returns the global (system-identified) email sources that send for the specified domain, matched by PTR domain.\n\n**Query parameters:**\n- `domain` (required): The domain address (e.g., “nsolutions.com”)",
+        "operationId": "list_email_sources",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "description": "Domain address (e.g., \"nsolutions.com\")",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/email_tests/address": {
+      "get": {
+        "tags": [
+          "email_tests"
+        ],
+        "summary": "Get test email address for a domain",
+        "description": "Returns the email address that should be used for sending test emails. Send a test message from any source (WordPress, SendGrid, CRM, etc.) to this address to validate SPF, DKIM, and DMARC authentication.",
+        "operationId": "get_email_test_address",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "description": "Domain address (e.g., \"example.com\")",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/email_tests": {
+      "get": {
+        "tags": [
+          "email_tests"
+        ],
+        "summary": "List email tests for a domain",
+        "description": "Returns a paginated list of email test results for the domain. Each test shows the authentication status (SPF, DKIM, DMARC) for emails sent to the domain’s test address.",
+        "operationId": "list_email_tests",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "description": "Domain address (e.g., \"example.com\")",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "per",
+            "in": "query",
+            "description": "Records per page (default: 25, max: 100)",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "unread",
+            "in": "query",
+            "description": "Filter by read status (true/false)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "description": "Filter by sending source hostname",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/email_tests/{id}": {
+      "get": {
+        "tags": [
+          "email_tests"
+        ],
+        "summary": "Get email test details",
+        "description": "Returns detailed information about a specific email test, including full authentication results, raw headers, and alignment status.",
+        "operationId": "get_email_test",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "description": "Domain address (e.g., \"example.com\")",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Email test ID",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/forensic_reports.json": {
+      "get": {
+        "tags": [
+          "forensic_reports"
+        ],
+        "summary": "List, Search and Paginate Failure Reports",
+        "description": "",
+        "operationId": "list_failure_reports",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at_gteq": {
+                  "type": "string",
+                  "description": "Search by date begin start"
+                },
+                "created_at_lteq": {
+                  "type": "string",
+                  "description": "Search by date begin end"
+                },
+                "ip_address_country_eq": {
+                  "type": "string",
+                  "description": "Search by country"
+                },
+                "ip_address_source_ip_eq": {
+                  "type": "string",
+                  "description": "Search by source ip"
+                },
+                "delivery_result": {
+                  "type": "string",
+                  "description": "Search by for delivery result"
+                },
+                "feedback_type_eq": {
+                  "type": "string",
+                  "description": "Search by feedback type"
+                },
+                "arrival_date_eq": {
+                  "type": "string",
+                  "description": "Search by arrival date"
+                },
+                "original_message_date_eq": {
+                  "type": "string",
+                  "description": "Search by original message date"
+                },
+                "from_address_eq": {
+                  "type": "string",
+                  "description": "Search by from address"
+                },
+                "message_id_eq": {
+                  "type": "string",
+                  "description": "Search by message id"
+                },
+                "subject_cont": {
+                  "type": "string",
+                  "description": "Search by subject cont"
+                }
+              }
+            },
+            "description": "Nested `q` filter object. The bridge must support `deepObject`; on the wire this stays `q[field]=value`."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page Number",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "per",
+            "in": "query",
+            "description": "Entries per page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/forensic_reports/{id}.json": {
+      "get": {
+        "tags": [
+          "forensic_reports"
+        ],
+        "summary": "Get all the details of a Failure Report",
+        "description": "",
+        "operationId": "get_failure_report",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/mta_sts_reports.json": {
+      "get": {
+        "tags": [
+          "mta_sts_reports"
+        ],
+        "summary": "List, Search and Paginate MTA Reports",
+        "description": "",
+        "operationId": "list_mta_sts_reports",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "start_datetime_gteq": {
+                  "type": "string",
+                  "description": "Search by date begin start"
+                },
+                "start_datetime_lteq": {
+                  "type": "string",
+                  "description": "Search by date begin end"
+                },
+                "organization_name_eq": {
+                  "type": "string",
+                  "description": "Search by for orgnization name"
+                },
+                "report_id_eq": {
+                  "type": "string",
+                  "description": "Search by report id"
+                },
+                "policy_type_eq": {
+                  "type": "string",
+                  "description": "Search by policy type"
+                },
+                "policy_host_eq": {
+                  "type": "string",
+                  "description": "Search by Policy host"
+                }
+              }
+            },
+            "description": "Nested `q` filter object. The bridge must support `deepObject`; on the wire this stays `q[field]=value`."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page Number",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "per",
+            "in": "query",
+            "description": "Entries per page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/mta_sts_reports/mta_failure_details.json": {
+      "get": {
+        "tags": [
+          "mta_sts_reports"
+        ],
+        "summary": "List, Search and Paginate MTA Reports",
+        "description": "",
+        "operationId": "list_mta_sts_failure_details",
+        "parameters": [
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "sending_mta_ip_address_source_ip_eq": {
+                  "type": "string",
+                  "description": "Search by sending source ip"
+                },
+                "receiving_ip_address_source_ip_eq": {
+                  "type": "string",
+                  "description": "Search by receiving source ip"
+                },
+                "result_type_eq": {
+                  "type": "string",
+                  "description": "Search byresult type"
+                },
+                "receiving_mx_hostname_eq": {
+                  "type": "string",
+                  "description": "Search by receiving mx host name"
+                }
+              }
+            },
+            "description": "Nested `q` filter object. The bridge must support `deepObject`; on the wire this stays `q[field]=value`."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page Number",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "per",
+            "in": "query",
+            "description": "Entries per page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/domains/{domain_id}/mta_sts_reports/{id}.json": {
+      "get": {
+        "tags": [
+          "mta_sts_reports"
+        ],
+        "summary": "Get all the details of a MTA Report",
+        "description": "",
+        "operationId": "get_mta_sts_report",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/postmaster_account_records.json": {
+      "get": {
+        "tags": [
+          "postmaster_account_records"
+        ],
+        "summary": "Cumulative data of all domains of a Postmaster Account",
+        "description": "",
+        "operationId": "list_postmaster_records",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "description": "Email address of Postmaster Account",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/postmaster_account_records/{id}.json": {
+      "get": {
+        "tags": [
+          "postmaster_account_records"
+        ],
+        "summary": "Details of a Postmaster Account domain.",
+        "description": "",
+        "operationId": "get_postmaster_record",
+        "parameters": [
+          {
+            "name": "item",
+            "in": "query",
+            "description": "Domain for which data is needed",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "description": "Email address of Postmaster Account",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/postmaster_account_records/connected.json": {
+      "get": {
+        "tags": [
+          "postmaster_account_records"
+        ],
+        "summary": "List of connected Postmaster Accounts.",
+        "description": "",
+        "operationId": "list_connected_postmaster_accounts",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/user_accounts": {
+      "get": {
+        "tags": [
+          "user_accounts"
+        ],
+        "summary": "List user accounts",
+        "description": "",
+        "operationId": "list_user_accounts",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account_id}/user_accounts/{id}": {
+      "get": {
+        "tags": [
+          "user_accounts"
+        ],
+        "summary": "Details of user account",
+        "description": "",
+        "operationId": "get_user_account",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.dmarcreport.com",
+      "description": "DMARC Report API v2 (production)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "accounts",
+      "description": ""
+    },
+    {
+      "name": "agg_reports",
+      "description": ""
+    },
+    {
+      "name": "alerts",
+      "description": ""
+    },
+    {
+      "name": "bimi_status",
+      "description": ""
+    },
+    {
+      "name": "domain_accounts",
+      "description": ""
+    },
+    {
+      "name": "domains",
+      "description": ""
+    },
+    {
+      "name": "email_sources",
+      "description": ""
+    },
+    {
+      "name": "email_tests",
+      "description": ""
+    },
+    {
+      "name": "forensic_reports",
+      "description": ""
+    },
+    {
+      "name": "mta_sts_reports",
+      "description": ""
+    },
+    {
+      "name": "postmaster_account_records",
+      "description": ""
+    },
+    {
+      "name": "user_accounts",
+      "description": ""
+    }
+  ],
+  "security": [
+    {
+      "TokenAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "TokenAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Value must be `Token token=<your-token>`."
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error (400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 422 Unprocessable Entity, 500 Server Error)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    }
+  }
+}
